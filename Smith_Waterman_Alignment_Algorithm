@@ -1,0 +1,138 @@
+# Step 1: Sequence Input and Scoring Matrix for Alignment. *Note: can only insert 'ACTG' characters with no spaces.
+# User Input 1&2: *Note: can only insert 'ACTG' characters with no spaces. Need to reverse query seqeunce to get hybridization score.
+Query = input('what is your Query Sequence? (Only ACGT) ')
+QueryRev = str(Query[::-1].upper().strip(' '))
+Ref = input('What is your Reference Sequence? (Only ACGT) ')
+print('\n')
+ReferenceSeq = str(Ref.upper().strip(' '))
+
+ScoreMatrix = {'GC': 3, 'CG': 3, 'AU': 2, 'UA': 2, 'GU': 1, 'UG': 1,
+                'GA': -1, 'AG': -1,'CA':-1, 'AC': -1, 'GG': -1, 'CC': -1, 'AA': -1, 'UU': -1, 'UC': -1, 'CU': -1
+               }
+
+# Step 2&3: Matrix Initialization and Scoring. Matrix is created and scored simultaneously. Column positions are stored as items in a dictionary with row# as key.
+AlignmentMatrix = {}
+hold =[0]
+startpositions = []
+for char in QueryRev:
+    hold.append(0)
+AlignmentMatrix[0] = hold
+
+a = 1
+for nt in ReferenceSeq:
+    QueryMatrix = [0]
+    b = 1
+    for nt1 in QueryRev:
+        QueryMatrix.append(max([AlignmentMatrix[a-1][b-1] + ScoreMatrix[nt+nt1], AlignmentMatrix[a-1][b] - 1, QueryMatrix[b-1] - 1,  0]))
+        b = b + 1
+    AlignmentMatrix[a] = QueryMatrix
+    a = a + 1
+
+# User Input 3: Will print scoring matrix if user responds with 'Y'. Any other input assumes they do not want the matrix shown.
+ShowScoringMatrix = input('Would you like to see the scoring matrix for this alignment? (Type Y/N) ')
+print('\n')
+ShowScoringMatrix = ShowScoringMatrix.upper().strip(' ')
+if ShowScoringMatrix == 'Y':
+    z = 0
+    while z < len(AlignmentMatrix):
+        print(AlignmentMatrix[z])
+        z = z + 1
+print('\n')
+
+#Step 4: Matrix Traceback. Algorithm finds the highest value in matrix, then finds seeds to start traceback in matrix. User Input 4 controls whether or not only optimal alignments are reported. 
+maxvalue = 0
+for line in AlignmentMatrix:
+    for char in AlignmentMatrix[line]:
+        if char > maxvalue:
+            maxvalue = char
+        else:
+            continue
+# User Input 4: User input controls whether or not optimal alignment or other alignments are shown.
+OptimalAlignment = input('Show only the optimal alignments? (Type Y/N) ')
+print('\n')
+OptimalAlignment = OptimalAlignment.upper().strip(' ')
+if OptimalAlignment == 'Y':
+    Optimal = 1
+else:
+    Optimal = 7
+
+c = len(AlignmentMatrix)-1
+DecisionTree = {}
+DecisionMatrix = []
+OutPutList = []
+while c > 0:
+    d = 0
+    while d < len(AlignmentMatrix[c]):
+        DecisionMatrix = []
+        QueryAlign = []
+        CharacterAlign = []
+        ReferenceAlign = []
+        if (maxvalue - AlignmentMatrix[c][d]) < Optimal:
+            DecisionMatrix.append([c,d,AlignmentMatrix[c][d]])
+            while DecisionMatrix[-1][-1] != 0:
+                Diag = AlignmentMatrix[c-1][d-1]
+                Hori = AlignmentMatrix[c][d-1]
+                Vert = AlignmentMatrix[c-1][d]
+                decision = max(Diag,Hori,Vert)
+                if decision ==  Diag:
+                    DecisionMatrix.append([c-1,d-1,AlignmentMatrix[c-1][d-1]])
+                    QueryAlign.append(QueryRev[d-1])
+                    if ScoreMatrix[ReferenceSeq[c-1]+QueryRev[d-1]] == 1:
+                        CharacterAlign.append(':')
+                    if ScoreMatrix[ReferenceSeq[c-1]+QueryRev[d-1]] > 1:
+                        CharacterAlign.append('|')
+                    if ScoreMatrix[ReferenceSeq[c-1]+QueryRev[d-1]] < 1:
+                        CharacterAlign.append(' ')
+                    ReferenceAlign.append(ReferenceSeq[c-1])
+                    c = DecisionMatrix[-1][0]
+                    d = DecisionMatrix[-1][1]
+                    continue
+                if decision == Hori:
+                    DecisionMatrix.append([c,d-1,AlignmentMatrix[c][d-1]])
+                    QueryAlign.append(QueryRev[d-1])
+                    CharacterAlign.append(' ')
+                    ReferenceAlign.append('-')
+                    c = DecisionMatrix[-1][0]
+                    d = DecisionMatrix[-1][1]
+                    continue
+                if decision == Vert:
+                    DecisionMatrix.append([c-1,d,AlignmentMatrix[c-1][d]])
+                    QueryAlign.append('-')
+                    CharacterAlign.append(' ')
+                    ReferenceAlign.append(ReferenceSeq[c-1])
+                    c = DecisionMatrix[-1][0]
+                    d = DecisionMatrix[-1][1]
+                    continue
+            OutPutList.append([DecisionMatrix[0][2],QueryAlign[::-1], CharacterAlign[::-1], ReferenceAlign[::-1],DecisionMatrix[0][0:2],DecisionMatrix[-1][0:2]])
+            DecisionTree[(DecisionMatrix[0][0],DecisionMatrix[0][1], DecisionMatrix[0][2])] = DecisionMatrix
+            c = DecisionMatrix[0][0]
+            d = DecisionMatrix[0][1]
+        d = d + 1
+    c = c - 1   
+
+# Step 5: OutPut Formatting. All seeds with respective tracebacks are sorted according to score and printed out as alignment.
+FormattedOutput = sorted(OutPutList,reverse=True)
+y = 0
+while y < len(FormattedOutput):
+
+    Pad = ''
+    Pad2 = ''
+    if FormattedOutput[y][-2][1] >= 10 and FormattedOutput[y][-1][0] < 10:
+        Pad2 = ' '
+    if FormattedOutput[y][-2][1] < 10 and FormattedOutput[y][-1][0] >= 10:
+        Pad = ' '
+    count = 0
+    if FormattedOutput[y][-2][1] >= 10 and FormattedOutput[y][-1][0] >= 10:
+        count = 1
+
+    Pad1 = (' ' * (28 + count)) + Pad + Pad2
+    
+    
+    print('Alignment Score: ', FormattedOutput[y][0], '\n',
+          '    Query Sequence: ',Pad, FormattedOutput[y][-2][1] ," 3'-", FormattedOutput[y][1], "-5' ", FormattedOutput[y][-1][1], '\n',
+          Pad1 , FormattedOutput[y][2],'\n',
+          'Reference Sequence: ',Pad2, FormattedOutput[y][-1][0]," 5'-", FormattedOutput[y][3], "-3' ",FormattedOutput[y][-2][0], '\n')
+    y = y + 1
+
+print('\n')
+EndProgram = input('Hit any key to terminate program...')
